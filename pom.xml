@@ -30,7 +30,12 @@
 		    <groupId>software.amazon.awssdk</groupId>
 		    <artifactId>s3</artifactId>
 		    <version>${software.amazon.awssdk}</version>    	
-		</dependency>	
+		</dependency>
+		<dependency>
+		    <groupId>software.amazon.awssdk</groupId>
+		    <artifactId>aws-crt-client</artifactId>
+		    <version>2.25.47</version>
+		</dependency>
 		<dependency>
 		    <groupId>com.opencsv</groupId>
 		    <artifactId>opencsv</artifactId>

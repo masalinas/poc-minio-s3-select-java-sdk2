@@ -1,5 +1,6 @@
 package io.oferto.pocminios3select.controller;
 
+import java.util.ArrayList;
 import java.util.List;
 
 import org.springframework.http.HttpStatus;
@@ -28,9 +29,11 @@ public class AnnotationController {
 			
 	@RequestMapping(value = "/expressions", method = { RequestMethod.GET }, produces = "application/json")
 	public ResponseEntity<?> findAllExpressionsByAnnotation(@RequestBody ExpressionRequestDto expressionRequestDto) {
-		List<Expression> expressions;
+		List<Expression> expressions = new ArrayList<>();
 		
 		try {
+			//annotationService.sample();
+			
 			expressions = (List<Expression>) annotationService.findAllExpressionsByAnnotation(expressionRequestDto);
 			
 			log.debug("findAllExpressionsByAnnotation: found {} expressions", expressions.size());
