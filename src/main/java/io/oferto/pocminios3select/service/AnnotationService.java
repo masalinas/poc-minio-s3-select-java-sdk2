@@ -31,7 +31,6 @@ import software.amazon.awssdk.services.s3.model.SelectObjectContentRequest;
 import software.amazon.awssdk.services.s3.model.SelectObjectContentResponseHandler;
 import software.amazon.awssdk.services.s3.model.Stats;
 
-import io.oferto.pocminios3select.config.ObjectStorageConfig;
 import io.oferto.pocminios3select.config.S3AsyncClientConfig;
 import io.oferto.pocminios3select.config.S3ClientConfig;
 import io.oferto.pocminios3select.dto.ExpressionRequestDto;
@@ -74,7 +73,8 @@ public class AnnotationService {
         
         return request;
     }
-    private SelectObjectContentRequest generateBaseCSVRequestPaginated(String bucket, String key, boolean isGzip, String query, long startRange, long endRange) {
+    
+	private SelectObjectContentRequest generateBaseCSVRequestPaginated(String bucket, String key, boolean isGzip, String query, long startRange, long endRange) {
         InputSerialization inputSerialization;        
         if (isGzip)
             inputSerialization = InputSerialization.builder()
@@ -219,10 +219,10 @@ public class AnnotationService {
         
         HeadObjectResponse response = s3ClientConfig.getS3Client().headObject(headObjectRequest);        
           
-        // select csv object by S3 Select API
-        long startTange = 0;
+        long startRange = 0;
         long endRange = Math.min(CHUNK_SIZE, response.contentLength());
         
+        // prepare S3 Select Execution Request
 		String query = "select s._1, s.\"" + expressionRequestDto.getAnnotationId() + "\" from s3object s";
 		
 		boolean isGzip = false;
@@ -254,7 +254,7 @@ public class AnnotationService {
         expressions = convertToExpression(resultInputStream, Expression.class);
         long end = System.currentTimeMillis();
         
-        System.out.print("Execution Persist time is " + formatter.format((end - start) / 1000d) + " seconds");
+        System.out.print("S3 Select execution is " + formatter.format((end - start) / 1000d) + " seconds");
         
 		return expressions;			
 	}
