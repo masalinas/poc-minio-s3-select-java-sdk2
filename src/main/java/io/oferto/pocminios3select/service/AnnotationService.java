@@ -1,20 +1,14 @@
 package io.oferto.pocminios3select.service;
 
 import java.io.BufferedReader;
-import java.io.File;
-import java.io.IOException;
+import java.io.ByteArrayInputStream;
 import java.io.InputStream;
 import java.io.InputStreamReader;
 import java.io.Reader;
-import java.net.URI;
-import java.net.URL;
 import java.text.DecimalFormat;
 import java.text.NumberFormat;
-import java.time.Instant;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.UUID;
-import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.atomic.AtomicBoolean;
 
 import org.springframework.stereotype.Service;
@@ -22,69 +16,36 @@ import org.springframework.stereotype.Service;
 import com.opencsv.bean.CsvToBean;
 import com.opencsv.bean.CsvToBeanBuilder;
 
-import lombok.RequiredArgsConstructor;
-import lombok.extern.slf4j.Slf4j;
-import software.amazon.awssdk.auth.credentials.AwsBasicCredentials;
-import software.amazon.awssdk.auth.credentials.StaticCredentialsProvider;
-import software.amazon.awssdk.core.ResponseBytes;
-import software.amazon.awssdk.core.async.AsyncRequestBody;
-import software.amazon.awssdk.core.async.BlockingInputStreamAsyncRequestBody;
-import software.amazon.awssdk.core.internal.http.loader.DefaultSdkHttpClientBuilder;
-import software.amazon.awssdk.http.SdkHttpClient;
-import software.amazon.awssdk.http.SdkHttpConfigurationOption;
-import software.amazon.awssdk.http.async.SdkAsyncHttpClient;
-import software.amazon.awssdk.http.crt.AwsCrtAsyncHttpClient;
-import software.amazon.awssdk.regions.Region;
-import software.amazon.awssdk.services.s3.S3AsyncClient;
-import software.amazon.awssdk.services.s3.S3Client;
-import software.amazon.awssdk.services.s3.model.Bucket;
 import software.amazon.awssdk.services.s3.model.CSVInput;
 import software.amazon.awssdk.services.s3.model.CSVOutput;
 import software.amazon.awssdk.services.s3.model.CompressionType;
 import software.amazon.awssdk.services.s3.model.ExpressionType;
 import software.amazon.awssdk.services.s3.model.FileHeaderInfo;
-import software.amazon.awssdk.services.s3.model.GetObjectRequest;
-import software.amazon.awssdk.services.s3.model.GetObjectResponse;
 import software.amazon.awssdk.services.s3.model.HeadObjectRequest;
 import software.amazon.awssdk.services.s3.model.HeadObjectResponse;
 import software.amazon.awssdk.services.s3.model.InputSerialization;
-import software.amazon.awssdk.services.s3.model.ListBucketsResponse;
-import software.amazon.awssdk.services.s3.model.ListObjectsRequest;
-import software.amazon.awssdk.services.s3.model.ListObjectsResponse;
 import software.amazon.awssdk.services.s3.model.OutputSerialization;
 import software.amazon.awssdk.services.s3.model.Progress;
-import software.amazon.awssdk.services.s3.model.PutObjectResponse;
-import software.amazon.awssdk.services.s3.model.S3Object;
 import software.amazon.awssdk.services.s3.model.ScanRange;
 import software.amazon.awssdk.services.s3.model.SelectObjectContentRequest;
 import software.amazon.awssdk.services.s3.model.SelectObjectContentResponseHandler;
 import software.amazon.awssdk.services.s3.model.Stats;
-import software.amazon.awssdk.utils.AttributeMap;
 
 import io.oferto.pocminios3select.config.ObjectStorageConfig;
+import io.oferto.pocminios3select.config.S3AsyncClientConfig;
+import io.oferto.pocminios3select.config.S3ClientConfig;
 import io.oferto.pocminios3select.dto.ExpressionRequestDto;
 import io.oferto.pocminios3select.model.Expression;
+
+import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 
 @Slf4j
 @Service
 @RequiredArgsConstructor
 public class AnnotationService {
 	private final int CHUNK_SIZE = 10 * 1024 * 1024;
-	
-	private final ObjectStorageConfig objectStorageConfig;
-	
-	static final String BUCKET_NAME = "select-object-content-" + UUID.randomUUID();
-	static String FILE_JSON = "json";
-    static String URL_CSV = "https://raw.githubusercontent.com/mledoze/countries/master/dist/countries.csv";
-    static String URL_JSON = "https://raw.githubusercontent.com/mledoze/countries/master/dist/countries.json";
-    
-	// disable cert validation
-	private final AttributeMap attributeMap = AttributeMap.builder()
-	        .put(SdkHttpConfigurationOption.TRUST_ALL_CERTIFICATES, true)
-	        //.put(SdkHttpConfigurationOption.GLOBAL_HTTP_DEFAULTS, Protocol.HTTPS)
-	      .build();
-	private final SdkHttpClient sdkHttpClient = new DefaultSdkHttpClientBuilder().buildWithDefaults(attributeMap);	
-	
+	  	
 	private SelectObjectContentRequest generateBaseCSVRequest(String bucket, String key, boolean isGzip, String query) {
         InputSerialization inputSerialization;        
         if (isGzip)
@@ -151,7 +112,7 @@ public class AnnotationService {
         return request;
     }
     
-    private static SelectObjectContentResponseHandler buildResponseHandler(EventStreamInfo eventStreamInfo) {
+    private SelectObjectContentResponseHandler buildResponseHandler(EventStreamInfo eventStreamInfo) {
         // Use a Visitor to process the response stream. This visitor logs information and gathers details while processing.
         final SelectObjectContentResponseHandler.Visitor visitor = SelectObjectContentResponseHandler.Visitor.builder()
                 .onRecords(r -> {
@@ -181,9 +142,9 @@ public class AnnotationService {
         return SelectObjectContentResponseHandler.builder()
                 .subscriber(visitor).build();
     }
-    
+        
     // The EventStreamInfo class is used to store information gathered while processing the response stream.
-    static class EventStreamInfo {
+    private class EventStreamInfo {
         private final List<String> records = new ArrayList<>();
         private Integer countOnRecordsCalled = 0;
         private Integer countContinuationEvents = 0;
@@ -221,9 +182,9 @@ public class AnnotationService {
             return stats;
         }
     }
-    
+        
     @SuppressWarnings({ "unchecked", "rawtypes" })
-    private static <T> List<T> convertToExpression(InputStream file, Class<T> responseType) {
+    private <T> List<T> convertToExpression(InputStream file, Class<T> responseType) {
         List<T> models;
         try (Reader reader = new BufferedReader(new InputStreamReader(file))) {           
 			CsvToBean<?> csvToBean = new CsvToBeanBuilder(reader)
@@ -240,118 +201,61 @@ public class AnnotationService {
         return models;
     }
     
-    private static long calKb(Long val) {
-        return val / 1024;
-    }        
-    
-    private static AttributeMap mapWithTrustAllCerts() {
-        return AttributeMap.builder()
-                           .put(SdkHttpConfigurationOption.TRUST_ALL_CERTIFICATES, true)
-                           .build();
-    }
-    
+    private final S3ClientConfig s3ClientConfig;
+    private final S3AsyncClientConfig s3AsyncClientConfig;
+       
 	public List<Expression> findAllExpressionsByAnnotation(ExpressionRequestDto expressionRequestDto) throws Exception {
-		List<Expression> expressions = new ArrayList<Expression>();
-		 
 		log.debug("findAllExpressionsByAnnotation: found expressions from annotation Id: {}", expressionRequestDto.getAnnotationId());
-		
-		long start = System.currentTimeMillis();
+				 		
 		NumberFormat formatter = new DecimalFormat("#0.00000");
-						
-		StaticCredentialsProvider credentials = StaticCredentialsProvider.create(
-				AwsBasicCredentials.create(
-						objectStorageConfig.getAccessKey(),
-						objectStorageConfig.getSecretKey()));
 		
-		final S3Client s3Client = S3Client.builder()
-				.endpointOverride(URI.create("https://" + objectStorageConfig.getHost() + ":" + objectStorageConfig.getPort()))
-				.region(Region.AWS_GLOBAL)
-				.forcePathStyle(true)			
-				.httpClient(sdkHttpClient)
-				.credentialsProvider(credentials)			
-			.build();
+		List<Expression> expressions = new ArrayList<Expression>();
 
 		// request resource metadata
         HeadObjectRequest headObjectRequest = HeadObjectRequest.builder()
-                .bucket(expressionRequestDto.getBucketName())
+        		.bucket(expressionRequestDto.getBucketName())
                 .key(expressionRequestDto.getKeyObjectName())
-                .build();
+            .build();
         
-        HeadObjectResponse response = s3Client.headObject(headObjectRequest);
-        
-        long contentLength = response.contentLength();
-        String contentType = response.contentType();
-        Instant lastModified = response.lastModified();
-        
+        HeadObjectResponse response = s3ClientConfig.getS3Client().headObject(headObjectRequest);        
+          
+        // filter csv object
         long startTange = 0;
         long endRange = Math.min(CHUNK_SIZE, response.contentLength());
         
-        ListBucketsResponse listBucketsResponse = s3Client.listBuckets();
-        List<Bucket> bucketList = listBucketsResponse.buckets();
-        bucketList.forEach(bucket -> {
-            System.out.println("Bucket Name: " + bucket.name());
-        });
-        
-        /*GetObjectRequest objectRequest = GetObjectRequest
-                .builder()
-                .key(expressionRequestDto.getKeyObjectName())
-                .bucket(expressionRequestDto.getBucketName())
-                .build();
-
-        ResponseBytes<GetObjectResponse> objectBytes = s3Client.getObjectAsBytes(objectRequest);
-        
-        byte[] data = objectBytes.asByteArray();*/
-        
-        ListObjectsRequest listObjects = ListObjectsRequest
-                .builder()
-                .bucket(expressionRequestDto.getBucketName())
-                .build();
-
-        ListObjectsResponse res = s3Client.listObjects(listObjects);
-        List<S3Object> objects = res.contents();
-        for (S3Object myValue : objects) {
-            System.out.print("\n The name of the key is " + myValue.key());
-            System.out.print("\n The object is " + calKb(myValue.size()) + " KBs");
-            System.out.print("\n The owner is " + myValue.owner());
-        }
-        
-		// request annotation expressions
 		String query = "select s._1, s.\"" + expressionRequestDto.getAnnotationId() + "\" from s3object s";
 		
 		boolean isGzip = false;
 		if (expressionRequestDto.getKeyObjectName().contains(".gz"))
 			isGzip = true;
-		                	                    
+
         SelectObjectContentRequest select = generateBaseCSVRequest(
         		expressionRequestDto.getBucketName(), 
         		expressionRequestDto.getKeyObjectName(), 
         		isGzip, 
         		query);
-                
-        final AtomicBoolean isResultComplete = new AtomicBoolean(false);
+                        
+        // call the selectObjectContent method with the request and a response handler. Supply an EventStreamInfo object to the response handler to gather records and information from the response.
+		long start = System.currentTimeMillis();
         
-        // Call the selectObjectContent method with the request and a response handler.
-        // Supply an EventStreamInfo object to the response handler to gather records and information from the response.
         EventStreamInfo eventStreamInfo = new EventStreamInfo();
-               
-        SdkAsyncHttpClient sdkAsyncHttpClient = AwsCrtAsyncHttpClient.builder().buildWithDefaults(mapWithTrustAllCerts());
+
+        s3AsyncClientConfig.getS3AsyncClient()
+        	.selectObjectContent(select, buildResponseHandler(eventStreamInfo)).join();
         
-        S3AsyncClient s3AsyncClient = S3AsyncClient.builder()   
-        		.httpClient(sdkAsyncHttpClient)
-        		.endpointOverride(URI.create("https://localhost:9000"))
-        		.region(Region.US_EAST_1)
-        		.forcePathStyle(true)        		
-        		//.httpClient(sdkHttpClient)
-        		.credentialsProvider(credentials)			
-        	.build();
+        // parsing async result to stream input and parse
+        StringBuilder sb = new StringBuilder();
+        for(String s : eventStreamInfo.getRecords()){
+            sb.append(s);           
+        }
         
-        s3AsyncClient.selectObjectContent(select, buildResponseHandler(eventStreamInfo))
-        	.join();
-                    
-        long recordCount = eventStreamInfo.getRecords().stream().mapToInt(record ->
-        	record.split("\n").length
-        ).sum();
-              
+        ByteArrayInputStream resultInputStream = new ByteArrayInputStream(sb.toString().getBytes("UTF-8"));
+        
+        expressions = convertToExpression(resultInputStream, Expression.class);
+        long end = System.currentTimeMillis();
+        
+        System.out.print("Execution Persist time is " + formatter.format((end - start) / 1000d) + " seconds");
+        
 		return expressions;			
 	}
 }

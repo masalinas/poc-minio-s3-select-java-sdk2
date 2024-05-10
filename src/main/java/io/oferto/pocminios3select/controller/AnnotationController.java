@@ -15,10 +15,7 @@ import lombok.extern.slf4j.Slf4j;
 
 import io.oferto.pocminios3select.service.AnnotationService;
 import io.oferto.pocminios3select.dto.ExpressionRequestDto;
-import io.oferto.pocminios3select.dto.CaseRequestDto;
 import io.oferto.pocminios3select.model.Expression;
-import io.oferto.pocminios3select.model.ProjectionDual;
-import io.oferto.pocminios3select.model.ProjectionPrimal;
 
 @Slf4j
 @RestController
@@ -32,8 +29,6 @@ public class AnnotationController {
 		List<Expression> expressions = new ArrayList<>();
 		
 		try {
-			//annotationService.sample();
-			
 			expressions = (List<Expression>) annotationService.findAllExpressionsByAnnotation(expressionRequestDto);
 			
 			log.debug("findAllExpressionsByAnnotation: found {} expressions", expressions.size());
@@ -48,47 +43,5 @@ public class AnnotationController {
 		            .status(HttpStatus.INTERNAL_SERVER_ERROR)
 		            .body(e.getMessage());
 		}			
-	}
-	
-	/*@RequestMapping(value = "/projections/primal",method = { RequestMethod.GET }, produces = "application/json")
-	public ResponseEntity<?> findAllPrimalProjections(@RequestBody CaseRequestDto caseRequestDto) {
-		List<ProjectionPrimal> projections;
-		
-		try {
-			projections = (List<ProjectionPrimal>) annotationService.findAllPrimalProjectionsBySpace(caseRequestDto);
-			
-			log.debug("findAllPrimalProjectionsBySpace: found {} projections", projections.size());
-			
-			return ResponseEntity
-		            .status(HttpStatus.OK)
-		            .body(projections);
-		} catch (Exception e) {
-			e.printStackTrace();
-			
-			return ResponseEntity
-		            .status(HttpStatus.INTERNAL_SERVER_ERROR)
-		            .body(e.getMessage());
-		}			
-	}*/
-	
-	/*@RequestMapping(value = "/projections/dual",method = { RequestMethod.GET }, produces = "application/json")
-	public ResponseEntity<?> findAllDualProjections(@RequestBody CaseRequestDto caseRequestDto) {
-		List<ProjectionDual> projections;
-		
-		try {
-			projections = (List<ProjectionDual>) annotationService.findAllDualProjectionsBySpace(caseRequestDto);
-			
-			log.debug("findAllDualProjectionsBySpace: found {} projections", projections.size());
-			
-			return ResponseEntity
-		            .status(HttpStatus.OK)
-		            .body(projections);
-		} catch (Exception e) {
-			e.printStackTrace();
-			
-			return ResponseEntity
-		            .status(HttpStatus.INTERNAL_SERVER_ERROR)
-		            .body(e.getMessage());
-		}			
-	}*/	
+	}	
 }
