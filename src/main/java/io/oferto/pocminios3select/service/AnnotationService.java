@@ -219,7 +219,7 @@ public class AnnotationService {
         
         HeadObjectResponse response = s3ClientConfig.getS3Client().headObject(headObjectRequest);        
           
-        // filter csv object
+        // select csv object by S3 Select API
         long startTange = 0;
         long endRange = Math.min(CHUNK_SIZE, response.contentLength());
         
